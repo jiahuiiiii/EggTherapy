@@ -17,13 +17,11 @@ const ChatGPTComponent = () => {
     const handleScroll = () => {
         const container = containerRef.current;
         if (container) {
-            // Calculate if the user is at the bottom
             const isUserAtBottom = container.scrollHeight - container.scrollTop === container.clientHeight;
             setIsAtBottom(isUserAtBottom);
         }
     };
     useEffect(() => {
-        // If the user is at the bottom, scroll down when new messages arrive
         const container = containerRef.current;
         if (container && isAtBottom) {
             container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
@@ -44,23 +42,30 @@ const ChatGPTComponent = () => {
             setChatHistory(JSON.parse(savedChatHistory));
         }
     }, []);
-    // Function to handle text-to-speech
-    const textToSpeech = async (text) => {
-        const apiUrl = 'http://localhost:3001/text-to-speech';
-        const apiKey = ''; // Replace with your actual API key
-    
-        try {
-            const response = await axios.post(apiUrl, {
-                text: text,
-                voice: "en_us_male" // Adjust as per your requirements
-            });
-    
-            console.log(response.data); // Handle the response
-        } catch (error) {
-            console.error("Error with text-to-speech:", error);
-        }
-    };
 
+    // Function to handle text-to-speech with Eleven Labs
+    const textToSpeech = async (text, voiceId) => {
+        try {
+          const response = await fetch('http://localhost:3000/api/text-to-speech', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ text, voiceId }),
+          });
+    
+          if (response.ok) {
+            const audioBlob = await response.blob();
+            const audioURL = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioURL);
+            audio.play();
+          } else {
+            console.error('API returned error:', response.statusText);
+          }
+        } catch (error) {
+          console.error('Error calling backend API:', error);
+        }
+      };
 
     // Call ChatGPT API
     const callChatGPT = async () => {
@@ -70,7 +75,6 @@ const ChatGPTComponent = () => {
         const apiKey = 'sk-xWl5CCRDcHqQUqi8vmV1wNppa55VQyVPKb3znQ-bMST3BlbkFJCUvJlgRCoK1BRIUow67N6IIAB4XAAPrnOQHoey6vQA'; // Store API key securely!
         const apiUrl = "https://api.openai.com/v1/chat/completions";
 
-        // Prepare messages for the API
         const messages = [
             { role: "system", content: "You are a compassionate and empathetic therapist." },
             ...chatHistory.map(chat => [
@@ -101,7 +105,8 @@ const ChatGPTComponent = () => {
             const newChatHistory = [...chatHistory, { message, response: chatResponse }];
             setChatHistory(newChatHistory);
             localStorage.setItem('chatHistory', JSON.stringify(newChatHistory)); // Save to localStorage
-            await textToSpeech(chatResponse);
+            // Call Eleven Labs TTS
+            await textToSpeech(chatResponse, "XB0fDUnXU5powFXDhCwa");
             setLoading(false);
         } catch (error) {
             console.error("Error connecting to ChatGPT API:", error);
@@ -140,10 +145,8 @@ const ChatGPTComponent = () => {
 
             {/* Main Content */}
             <div className='w-1/2 justify-between flex flex-col'>
-                {/* Display Chat History */}
-                <div
-                    className="text-white bg-[#626F47] overflow-y-scroll p-4 rounded-md mb-4 h-96 relative flex flex-col "
-                    onScroll={handleScroll} // Corrected here
+                <div className="text-white bg-[#626F47] overflow-y-scroll p-4 rounded-md mb-4 h-96 relative flex flex-col"
+                    onScroll={handleScroll}
                     ref={containerRef}
                 >
                     {chatHistory.length > 0 ? (
@@ -166,12 +169,10 @@ const ChatGPTComponent = () => {
                     )}
                     {
                         isAtBottom ? '':(
-                            <button className="fixed left-1/2 flex bg-[F2EED7] p-1 rounded-full" onClick={
-                                ()=>{
-                                    const container = containerRef.current;
-                                    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
-                                }
-                                }>
+                            <button className="fixed left-1/2 flex bg-[F2EED7] p-1 rounded-full" onClick={()=>{
+                                const container = containerRef.current;
+                                container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+                            }}>
                                 <Icon icon="akar-icons:arrow-right" className="text-2xl te" rotate={1} />
                             </button>
                         )
