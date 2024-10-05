@@ -18,8 +18,8 @@ const Home = () => {
           </button>
           </Link>
           <Link to="/chat">
-            <button className="flex flex-row justify-center items-center px-16 p-3 w-40 bg-[#866340] border-[#866340] border-4 rounded-md text-[#A6B37D] font-bold text-xl">
-              <div className="flex flex-row items-center gap-2  hover:gap-4 transition-all">
+            <button className="flex flex-row justify-center items-center px-16 p-3 w-40 bg-[#866340] border-[#866340] border-4 rounded-md text-[#AFBB89] font-bold text-xl">
+              <div className="flex flex-row items-center gap-2  hover:gap-4 transition-all ">
                 Start
                 <Icon icon="akar-icons:arrow-right" className="text-2xl" />
               </div>

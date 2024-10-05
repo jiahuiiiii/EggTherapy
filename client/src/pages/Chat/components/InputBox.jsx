@@ -8,8 +8,8 @@ const InputBox = ({ SubmitFunc, listen, stop, speaking, setSpeaking, message, se
       setMessage(''); 
     }
   };
-  return <div className='fixed bottom-30 bottom-12 rounded-md bg-[#866340] flex flex-row text-[#FEFAE0] justify-center items-center px-4 py-2 w-1/2 shadow-md'>
-    <Icon icon="mdi:pin-outline" className="w-6 h-6" />
+  return <div className='fixed bottom-30 bottom-12 rounded-md bg-[#866340] flex flex-row text-[#FEFAE0] justify-center items-center px-4 py-2 w-3/5 shadow-md'>
+    {/* <Icon icon="mdi:pin-outline" className="w-6 h-6" /> */}
     <>{
       speaking ? (
         <button onClick={() => {
@@ -19,14 +19,14 @@ const InputBox = ({ SubmitFunc, listen, stop, speaking, setSpeaking, message, se
           setSpeaking(false)
 
         }}>
-          <Icon icon="mdi:stop" className="w-6 h-6 ml-4" />
+          <Icon icon="mdi:stop" className="w-6 h-6" />
         </button>
       ) : (<button onClick={() => {
         listen()
         setSpeaking(true)
       }
       }>
-        <Icon icon="material-symbols:mic" className="w-6 h-6 ml-4" />
+        <Icon icon="material-symbols:mic" className="w-6 h-6" />
       </button>)
     }</>
     <input className="outline-none bg-[#866340] w-full  p-2 " value={message} onChange={(e) => {

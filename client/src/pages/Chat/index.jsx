@@ -4,21 +4,57 @@ import InputBox from "./components/InputBox";
 import { Icon } from '@iconify/react';
 import { Link } from "react-router-dom";
 import { useSpeechRecognition } from 'react-speech-kit';
-
+import talkVideo from '../../assets/vid/talk.mp4';
+import idleVideo from '../../assets/vid/idle.mp4';
 
 const ChatGPTComponent = () => {
+    let audioURL;
+    let audio;
+    const videoRef = useRef(null);
+    const audioRef = useRef(null);
     const [message, setMessage] = useState("");
+    
+    const [playing, setPlaying] = useState('');
     const containerRef = useRef(null);
     const [response, setResponse] = useState("");
     const [chatHistory, setChatHistory] = useState([]); // State to store the chat history
     const [loading, setLoading] = useState(false);
     const [speaking, setSpeaking] = useState(false);
     const [isAtBottom, setIsAtBottom] = useState(true);
+    const [audioPlaying,setAudioPlaying] = useState(false);
+    const [backgroundVideo, setBackgroundVideo] = useState(idleVideo) // Default to idle video
+
+    useEffect(() => {
+        // Update video source based on audioPlaying state
+        const newVideo = audioPlaying ? talkVideo : idleVideo;
+        setBackgroundVideo(newVideo);
+
+        if (videoRef.current) {
+            videoRef.current.load(); // Reload the video when the source changes
+        }
+    }, [audioPlaying])
+
+    const handleBuffer = () => {
+        console.log('Video is buffering');
+    };
+
+    const handleError = () => {
+        console.error('Error loading the video');
+    };
+
     const handleScroll = () => {
         const container = containerRef.current;
         if (container) {
             const isUserAtBottom = container.scrollHeight - container.scrollTop === container.clientHeight;
             setIsAtBottom(isUserAtBottom);
+        }
+    };
+    const stopAudio = () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+            setAudioPlaying(false);
+            setPlaying(null); // reset playing index
         }
     };
     useEffect(() => {
@@ -44,7 +80,7 @@ const ChatGPTComponent = () => {
     }, []);
 
     // Function to handle text-to-speech with Eleven Labs
-    const textToSpeech = async (text, voiceId) => {
+    const textToSpeech = async (text, voiceId,index) => {
         try {
           const response = await fetch('http://localhost:3000/api/text-to-speech', {
             method: 'POST',
@@ -56,9 +92,13 @@ const ChatGPTComponent = () => {
     
           if (response.ok) {
             const audioBlob = await response.blob();
-            const audioURL = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioURL);
-            audio.play();
+            audioURL = URL.createObjectURL(audioBlob);
+            audio = new Audio(audioURL);
+            if(!audioPlaying){
+                setAudioPlaying(true);
+                setPlaying(index);
+                audio.play();
+            }
           } else {
             console.error('API returned error:', response.statusText);
           }
@@ -66,7 +106,11 @@ const ChatGPTComponent = () => {
           console.error('Error calling backend API:', error);
         }
       };
-
+    useEffect(() => {
+        if(audio){
+            setAudioPlaying(false);
+        }
+    }, [audioPlaying,audio]);
     // Call ChatGPT API
     const callChatGPT = async () => {
         setLoading(true);
@@ -106,16 +150,15 @@ const ChatGPTComponent = () => {
             setChatHistory(newChatHistory);
             localStorage.setItem('chatHistory', JSON.stringify(newChatHistory)); // Save to localStorage
             // Call Eleven Labs TTS
-            await textToSpeech(chatResponse, "XB0fDUnXU5powFXDhCwa");
+            await textToSpeech(chatResponse, "XB0fDUnXU5powFXDhCwa",chatHistory.length);
             setLoading(false);
         } catch (error) {
             console.error("Error connecting to ChatGPT API:", error);
             setLoading(false);
         }
     };
-
     return (
-        <div className="w-full justify-center items-center flex relative">
+        <div className="w-full justify-center items-center flex relative h-full">
             {/* Header Section */}
             <div className="fixed top-1 flex justify-between w-full p-4">
                 <div className='flex flex-row gap-5 items-center'>
@@ -144,8 +187,8 @@ const ChatGPTComponent = () => {
             </div>
 
             {/* Main Content */}
-            <div className='w-1/2 justify-between flex flex-col'>
-                <div className="text-white bg-[#626F47] overflow-y-scroll p-4 rounded-md mb-4 h-96 relative flex flex-col"
+            <div className='w-3/5 justify-between flex flex-col z-10'>
+                <div className="text-white bg-[#626F47] overflow-y-scroll overflow-x-clip p-4 rounded-md mb-4 h-[38rem] relative flex flex-col"
                     onScroll={handleScroll}
                     ref={containerRef}
                 >
@@ -158,8 +201,23 @@ const ChatGPTComponent = () => {
                                     </div>
                                 </div>
                                 <div className="flex justify-start">
-                                    <div className="p-2 rounded-lg max-w-xs bg-[#866340] text-[#FEFAE0]">
+                                <div className="p-2 rounded-lg max-w-xs bg-[#866340] text-[#FEFAE0]">
                                         {chat.response}
+                                        <>
+                                            {
+                                                !audioPlaying || playing!=index  ? (
+                                                    <Icon icon="solar:restart-square-bold" className="text-[#FEFAE0]" onClick={() => {
+                                                        textToSpeech(chat.response, "XB0fDUnXU5powFXDhCwa",index);
+                                                    }} />
+                                                ) : (
+                                                    <Icon icon="mdi:stop" className="text-[#FEFAE0]" onClick={() => {
+                                                        stopAudio();
+                                                        setAudioPlaying(false);
+                                                        
+                                                    }} />
+                                                )
+                                            }
+                                        </>
                                     </div>
                                 </div>
                             </div>
@@ -179,7 +237,18 @@ const ChatGPTComponent = () => {
                     }
                 </div>
             </div>
-
+            <div className="video-container">
+                <video
+                    ref={videoRef}
+                    src={backgroundVideo}
+                    onBuffer={handleBuffer}
+                    onError={handleError}
+                    autoPlay
+                    loop
+                    muted
+                    className="absolute bottom-0 right-0 w-1/3 h-auto z-0"
+                />
+            </div>
             {/* InputBox Component for Submission */}
             <InputBox
                 SubmitFunc={callChatGPT}
