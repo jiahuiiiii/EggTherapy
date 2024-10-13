@@ -1,7 +1,7 @@
-const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
-const dotenv = require('dotenv');
+const express = require("express");
+const axios = require("axios");
+const cors = require("cors");
+const dotenv = require("dotenv");
 
 // Load environment variables from .env file
 dotenv.config();
@@ -14,36 +14,39 @@ app.use(cors());
 app.use(express.json());
 
 // ElevenLabs API base URL
-const elevenLabsBaseURL = 'https://api.elevenlabs.io/v1';
+const elevenLabsBaseURL = "https://api.elevenlabs.io/v1";
 
 // Endpoint to convert text to speech using ElevenLabs
-app.post('/api/text-to-speech', async (req, res) => {
+app.post("/api/text-to-speech", async (req, res) => {
   const { text, voiceId } = req.body;
 
   // Check if voiceId and text are provided
   if (!text || !voiceId) {
-    return res.status(400).json({ error: 'Text and Voice ID are required' });
+    return res.status(400).json({ error: "Text and Voice ID are required" });
   }
 
   try {
     const response = await axios.post(
-      `${elevenLabsBaseURL}/text-to-speech/${voiceId}`, 
+      `${elevenLabsBaseURL}/text-to-speech/${voiceId}`,
       { text },
       {
         headers: {
-          'Content-Type': 'application/json',
-          'xi-api-key': 'sk_52bcad9d644fe319bb4237ec3209772a6ecfa68c78b95501', // Load API key from environment
+          "Content-Type": "application/json",
+          "xi-api-key": "sk_b0ac2f8cfa89879b9406f8a4d76e982a31d4d1097a7888e7", // Load API key from environment
         },
-        responseType: 'arraybuffer' // Handle audio data
+        responseType: "arraybuffer", // Handle audio data
       }
     );
 
     // Set appropriate headers and send the audio data
-    res.set('Content-Type', 'audio/mpeg');
+    res.set("Content-Type", "audio/mpeg");
     res.send(response.data);
   } catch (error) {
-    console.error('Error calling ElevenLabs API:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Failed to process text-to-speech request' });
+    console.error(
+      "Error calling ElevenLabs API:",
+      error.response?.data || error.message
+    );
+    res.status(500).json({ error: "Failed to process text-to-speech request" });
   }
 });
 

@@ -1,10 +1,9 @@
-import firebase from 'firebase/compat/app';
-import {
-  GoogleAuthProvider,
-} from 'firebase/auth';
-import 'firebase/compat/auth';
-import 'firebase/compat/firestore';
-import { getStorage } from 'firebase/storage';
+import firebase from "firebase/compat/app";
+import { GoogleAuthProvider } from "firebase/auth";
+import "firebase/compat/auth";
+import "firebase/compat/firestore";
+import { setDoc, doc } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 // TODO: Add SDKs for Firebase products that you want to use
 // https://firebase.google.com/docs/web/setup#available-libraries
 
@@ -17,7 +16,7 @@ const firebaseConfig = {
   storageBucket: "eggsperience-therapy.appspot.com",
   messagingSenderId: "330660637044",
   appId: "1:330660637044:web:96a47e76a3d5710aaea421",
-  measurementId: "G-CCQK0XQC9N"
+  measurementId: "G-CCQK0XQC9N",
 };
 export const app = firebase.initializeApp(firebaseConfig);
 export const firestore = firebase.firestore();
@@ -28,11 +27,10 @@ export const signInWithGoogle = () => {
     .signInWithPopup(GoogleProvider)
     .then(async ({ user, additionalUserInfo }) => {
       if (additionalUserInfo.isNewUser) {
-        await setDoc(doc(firestore, 'user', user.uid), {
+        await setDoc(doc(firestore, "user", user.uid), {
           userName: user.displayName,
           userImage: user.photoURL,
-          aboutUser: '',
-          bgImg: '',
+          uid: user.uid,
           // ...
         });
       }
@@ -40,4 +38,8 @@ export const signInWithGoogle = () => {
     .catch((error) => {
       throw error;
     });
+};
+export const signOut = (navigate) => {
+  auth.signOut();
+  navigate("/signin");
 };
