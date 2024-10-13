@@ -193,7 +193,7 @@ const ChatGPTComponent = () => {
                 body: JSON.stringify({
                     model: "gpt-3.5-turbo",
                     messages: messages,
-                    stream: true, // Enable streaming
+                    stream: true,
                 }),
             });
 
