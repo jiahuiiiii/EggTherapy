@@ -52,6 +52,7 @@ const InputBox = ({
       />
       <button
         onClick={() => {
+          stop();
           SubmitFunc();
           setMessage("");
           setSpeaking(false);
