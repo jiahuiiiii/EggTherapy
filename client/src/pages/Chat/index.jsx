@@ -6,15 +6,17 @@ import { Link } from "react-router-dom";
 import { useSpeechRecognition } from "react-speech-kit";
 import ReactMarkdown from "react-markdown"; // Import react-markdown
 import remarkGfm from "remark-gfm"; // Import remark-gfm if using
+import removeMarkdown from "remove-markdown";
 import talkVideo from "../../assets/vid/talk.mp4";
 import idleVideo from "../../assets/vid/idle.mp4";
 import { appContext } from "../../App";
 import { signOut } from "../../firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { firestore } from "../../firebase";
 import { useDocument } from "react-firebase-hooks/firestore";
 
 const ChatGPTComponent = () => {
+  const [alert, setAlert] = useState(false);
   const videoRef = useRef(null);
   const audioRef = useRef(null); // Ref to manage audio
   const [message, setMessage] = useState("");
@@ -28,18 +30,26 @@ const ChatGPTComponent = () => {
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [backgroundVideo, setBackgroundVideo] = useState(idleVideo); // Default to idle video
   const { userData, navigate } = useContext(appContext);
-  const uid = "vldJ5N8kKpVJ3tX1pLRNiMPNIWD2";
-  const [value, vloading] = uid
-    ? useDocument(doc(firestore, "user", uid))
-    : [null, false];
-
-  const [chatHistory, setChatHistory] = useState(
-    value?.data().chathistory || []
-  );
+  const uid = userData?.uid;
+  const [value, setValue] = useState(null);
+  const [vloading, setVloading] = useState(true);
   useEffect(() => {
-    setChatHistory(value?.data().chathistory || []);
-  }, [value]);
-  console.log(chatHistory);
+    if (uid) {
+      const docRef = doc(firestore, "user", uid);
+      const unsubscribe = onSnapshot(docRef, (doc) => {
+        setValue(doc);
+        setVloading(false);
+      });
+      return unsubscribe;
+    }
+  }, [userData]);
+  //   const [chatHistory, setChatHistory] = useState(
+  //     value?.data().chathistory || []
+  //   );
+  //   useEffect(() => {
+  //     setChatHistory(value?.data().chathistory || []);
+  //   }, [value]);
+  //   console.log(chatHistory);
   // Ref to track the end of the chat for scrolling
   const endOfChatRef = useRef(null);
 
@@ -65,12 +75,22 @@ const ChatGPTComponent = () => {
     const container = containerRef.current;
     if (container) {
       const isUserAtBottom =
-        container.scrollHeight - container.scrollTop <=
-        container.clientHeight + 50; // Added tolerance
+        container.scrollHeight - container.scrollTop <= container.clientHeight; // Added tolerance
       setIsAtBottom(isUserAtBottom);
     }
   };
-
+  const isrefresh =
+    window.performance.navigation.type === performance.navigation.TYPE_RELOAD;
+  useEffect(() => {
+    handleScroll();
+    console.log(isrefresh);
+  });
+  useEffect(() => {
+    const pageLoaded = sessionStorage.getItem("pageLoaded");
+    if (pageLoaded) {
+      scrollToBottom();
+    }
+  });
   const stopAudio = () => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -83,11 +103,15 @@ const ChatGPTComponent = () => {
 
   useEffect(() => {
     const container = containerRef.current;
-    if (container && isAtBottom) {
-      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    setIsAtBottom(false);
+    if (!isAtBottom) {
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: "smooth",
+      });
     }
-  }, [chatHistory, isAtBottom]);
-
+    setIsAtBottom(true);
+  }, [value]);
   // Initialize Speech Recognition
   const { listen, listening, stop, supported } = useSpeechRecognition({
     onResult: (result) => {
@@ -115,8 +139,9 @@ const ChatGPTComponent = () => {
 
   // Function to handle new messages and scroll
   useEffect(() => {
+    handleScroll();
     scrollToBottom();
-  }, [chatHistory, response]);
+  }, [value]);
 
   // Function to handle text-to-speech with Eleven Labs
   const textToSpeech = async (text, voiceId, index) => {
@@ -206,7 +231,7 @@ const ChatGPTComponent = () => {
         content:
           "You are a compassionate and empathetic therapist. Speak with a calm, understanding tone and ask open-ended questions that encourage reflection. Use gentle affirmations and acknowledge feelings. Offer short, conversational, and human-like responses that convey genuine concern and support. Adapt your responses to show active listening and avoid rushing the conversation.",
       },
-      ...chatHistory.flatMap((chat) => [
+      ...value?.data()?.chathistory?.flatMap((chat) => [
         { role: "user", content: chat.message },
         { role: "assistant", content: chat.response },
       ]),
@@ -221,7 +246,7 @@ const ChatGPTComponent = () => {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini-2024-07-18",
+          model: "gpt-4o",
           messages: messages,
           stream: true,
         }),
@@ -279,16 +304,17 @@ const ChatGPTComponent = () => {
 
       // After the full response is received
       const newChatHistory = [
-        ...chatHistory,
+        ...(value?.data()?.chathistory || []),
         { message, response: fullResponse },
       ];
       //   setChatHistory(newChatHistory);
       uploadChatHistory(newChatHistory);
       localStorage.setItem("chatHistory", JSON.stringify(newChatHistory)); // Save to localStorage
 
-      // Call Eleven Labs TTS, if necessary
+      const plainText = removeMarkdown(fullResponse);
+
       textToSpeech(
-        fullResponse,
+        plainText,
         "a0euEDMIIr9cUObJf0DX",
         newChatHistory.length - 1
       );
@@ -302,8 +328,34 @@ const ChatGPTComponent = () => {
 
   return (
     <div className="w-full justify-center items-center flex relative h-full">
+      {alert && (
+        <div className="top-2 fixed z-50 rounded-md flex flex-row p-2 gap-3  w-1/3 justify-center items-center bg-[#626F47]">
+          <Icon
+            icon="rivet-icons:exclamation-mark-circle"
+            className="text-rose-600 text-2xl "
+          />
+          <button
+            className="w-1/4 p-3 bg-[#FEFAE0] rounded-md text-[#626F47] flex flex-row items-center justify-center gap-1 hover:gap-3 transition-all"
+            onClick={() => {
+              signOut(navigate);
+              setAlert(false);
+            }}
+          >
+            <Icon icon="material-symbols:logout" className="text-red-500" />
+            Logout
+          </button>
+          <button
+            className="w-1/4 p-3 bg-[#FEFAE0] rounded-md text-[#626F47] flex flex-row items-center justify-center gap-1 hover:gap-3 transition-all"
+            onClick={() => setAlert(false)}
+          >
+            <Icon icon="iconoir:xmark-circle" className="text-red-500" />
+            Cancel
+          </button>
+        </div>
+      )}
       {/* Header Section */}
       <InputBox
+        className="z-5"
         SubmitFunc={callChatGPT}
         listen={listen}
         stop={stop}
@@ -343,7 +395,10 @@ const ChatGPTComponent = () => {
             icon="carbon:user-avatar-filled-alt"
             className="text-[#FEFAE0] w-12 h-12"
           /> */}
-          <button onClick={() => signOut(navigate)}>
+          <div className="text-[#FEFAE0] font-bold text-xl">
+            {userData?.userName}
+          </div>
+          <button onClick={() => setAlert(true)}>
             <img
               src={userData?.userImage}
               alt="user"
@@ -369,7 +424,7 @@ const ChatGPTComponent = () => {
           </div>
 
           {value ? (
-            chatHistory.map((chat, index) => (
+            value?.data()?.chathistory?.map((chat, index) => (
               <div key={index} className="mb-2">
                 <div className="flex justify-end">
                   <div className="p-2 rounded-lg max-w-md bg-[#FEFAE0] text-[#866340]">
@@ -394,7 +449,7 @@ const ChatGPTComponent = () => {
                         if (!audioPlaying || playing !== index) {
                           textToSpeech(
                             chat.response,
-                            "XB0fDUnXU5powFXDhCwa",
+                            "a0euEDMIIr9cUObJf0DX",
                             index
                           );
                         } else {
@@ -407,7 +462,7 @@ const ChatGPTComponent = () => {
               </div>
             ))
           ) : vloading ? (
-            <div>loaind..</div>
+            <div className="p-2">loading...</div>
           ) : (
             <div className="text-center text-gray-400">No chat history yet</div>
           )}

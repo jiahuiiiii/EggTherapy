@@ -17,7 +17,7 @@ const InputBox = ({
     }
   };
   return (
-    <div className="fixed bottom-30 bottom-12 rounded-md bg-[#866340] flex flex-row text-[#FEFAE0] justify-center items-center px-4 py-2 w-3/5 shadow-md">
+    <div className="fixed z-30 bottom-30 bottom-12 rounded-md bg-[#866340] flex flex-row text-[#FEFAE0] justify-center items-center px-4 py-2 w-3/5 shadow-md">
       {/* <Icon icon="mdi:pin-outline" className="w-6 h-6" /> */}
       <>
         {speaking ? (

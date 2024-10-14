@@ -32,7 +32,7 @@ app.post("/api/text-to-speech", async (req, res) => {
       {
         headers: {
           "Content-Type": "application/json",
-          "xi-api-key": "sk_b0ac2f8cfa89879b9406f8a4d76e982a31d4d1097a7888e7", // Load API key from environment
+          "xi-api-key": "sk_8d2c21e9e4b8ca049c928f9b187185deb4e95ae3a713505e",
         },
         responseType: "arraybuffer", // Handle audio data
       }
