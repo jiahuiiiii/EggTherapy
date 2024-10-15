@@ -20,17 +20,17 @@ const ChatGPTComponent = () => {
   const [alert, setAlert] = useState(false);
   const [historyEmotion, setHistoryEmotion] = useState([]);
   const videoRef = useRef(null);
-  const audioRef = useRef(null); // Ref to manage audio
+  const audioRef = useRef(null);
   const [message, setMessage] = useState("");
-  const [playing, setPlaying] = useState(null); // Changed from '' to null
+  const [playing, setPlaying] = useState(null);
   const containerRef = useRef(null);
   const [response, setResponse] = useState("");
-  //   const [chatHistory, setChatHistory] = useState([]); // State to store the chat history
+
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [audioPlaying, setAudioPlaying] = useState(false);
-  const [backgroundVideo, setBackgroundVideo] = useState(idleVideo); // Default to idle video
+  const [backgroundVideo, setBackgroundVideo] = useState(idleVideo);
   const { userData, navigate } = useContext(appContext);
   const uid = userData?.uid;
   const [value, setValue] = useState(null);
@@ -38,10 +38,58 @@ const ChatGPTComponent = () => {
   const buttonScrollRef = useRef(null);
   const cameraRef = useRef();
   const canvasRef = useRef();
-  const [emotions, setEmotions] = useState([]); // State to store detected emotions
+  const endOfChatRef = useRef(null);
+  const [emotions, setEmotions] = useState([]);
 
   useEffect(() => {
     loadModels();
+  }, []);
+
+  // Track user scrolling and update if they are at the bottom
+  const handleScroll = () => {
+    const container = containerRef.current;
+    if (container) {
+      const isNearBottom =
+        container.scrollHeight - container.scrollTop <=
+        container.clientHeight + 50;
+      setIsAtBottom(isNearBottom);
+    }
+  };
+
+  // Scroll to the bottom when new messages are added
+  const scrollToBottom = () => {
+    if (isAtBottom && endOfChatRef.current) {
+      endOfChatRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  useEffect(() => {
+    if (uid) {
+      const docRef = doc(firestore, "user", uid);
+      const unsubscribe = onSnapshot(docRef, (doc) => {
+        setValue(doc);
+        setVloading(false);
+      });
+      return unsubscribe;
+    }
+  }, [userData]);
+
+  useEffect(() => {
+    // Auto scroll to the bottom when chat history changes and user is at the bottom
+    scrollToBottom();
+  }, [value]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (container) {
+      container.addEventListener("scroll", handleScroll);
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener("scroll", handleScroll);
+      }
+    };
   }, []);
 
   const startVideo = () => {
@@ -146,7 +194,6 @@ const ChatGPTComponent = () => {
   //   }, [value]);
   //   console.log(chatHistory);
   // Ref to track the end of the chat for scrolling
-  const endOfChatRef = useRef(null);
 
   useEffect(() => {
     // Update video source based on audioPlaying state
@@ -166,22 +213,22 @@ const ChatGPTComponent = () => {
     console.error("Error loading the video");
   };
 
-  const handleScroll = () => {
-    const container = containerRef.current;
-    if (container) {
-      const isUserAtBottom =
-        container.scrollHeight - container.scrollTop <= container.clientHeight; // Added tolerance
-      setIsAtBottom(isUserAtBottom);
-    }
-  };
-  const isrefresh =
-    window.performance.navigation.type === performance.navigation.TYPE_RELOAD;
-  useEffect(() => {
-    handleScroll();
-  });
-  useEffect(() => {
-    scrollToBottom();
-  });
+  // const handleScroll = () => {
+  //   const container = containerRef.current;
+  //   if (container) {
+  //     const isUserAtBottom =
+  //       container.scrollHeight - container.scrollTop <= container.clientHeight; // Added tolerance
+  //     setIsAtBottom(isUserAtBottom);
+  //   }
+  // };
+  // const isrefresh =
+  //   window.performance.navigation.type === performance.navigation.TYPE_RELOAD;
+  // useEffect(() => {
+  //   handleScroll();
+  // });
+  // useEffect(() => {
+  //   scrollToBottom();
+  // });
   const stopAudio = () => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -192,17 +239,17 @@ const ChatGPTComponent = () => {
     setPlaying(null); // reset playing index
   };
 
-  useEffect(() => {
-    const container = containerRef.current;
-    setIsAtBottom(false);
-    if (!isAtBottom) {
-      container.scrollTo({
-        top: container.scrollHeight,
-        behavior: "smooth",
-      });
-    }
-    setIsAtBottom(true);
-  }, [value]);
+  // useEffect(() => {
+  //   const container = containerRef.current;
+  //   setIsAtBottom(false);
+  //   if (!isAtBottom) {
+  //     container.scrollTo({
+  //       top: container.scrollHeight,
+  //       behavior: "smooth",
+  //     });
+  //   }
+  //   setIsAtBottom(true);
+  // }, [value]);
   // Initialize Speech Recognition
   const { listen, listening, stop, supported } = useSpeechRecognition({
     onResult: (result) => {
@@ -222,11 +269,11 @@ const ChatGPTComponent = () => {
   //   }, []);
 
   // Function to scroll to bottom
-  const scrollToBottom = () => {
-    if (endOfChatRef.current) {
-      endOfChatRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  };
+  // const scrollToBottom = () => {
+  //   if (endOfChatRef.current) {
+  //     endOfChatRef.current.scrollIntoView({ behavior: "smooth" });
+  //   }
+  // };
 
   // Function to handle new messages and scrolls
 
