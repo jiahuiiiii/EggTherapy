@@ -11,8 +11,10 @@ const InputBox = ({
 }) => {
   const handleKeyDown = (event) => {
     if (event.key === "Enter" && message.trim()) {
+      stop();
       event.preventDefault();
       SubmitFunc();
+      setSpeaking(false);
       setMessage("");
     }
   };

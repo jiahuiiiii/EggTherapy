@@ -14,9 +14,11 @@ import { signOut } from "../../firebase";
 import { doc, onSnapshot, updateDoc } from "firebase/firestore";
 import { firestore } from "../../firebase";
 import { useDocument } from "react-firebase-hooks/firestore";
+import * as faceapi from "face-api.js";
 
 const ChatGPTComponent = () => {
   const [alert, setAlert] = useState(false);
+  const [historyEmotion, setHistoryEmotion] = useState([]);
   const videoRef = useRef(null);
   const audioRef = useRef(null); // Ref to manage audio
   const [message, setMessage] = useState("");
@@ -33,6 +35,99 @@ const ChatGPTComponent = () => {
   const uid = userData?.uid;
   const [value, setValue] = useState(null);
   const [vloading, setVloading] = useState(true);
+  const buttonScrollRef = useRef(null);
+  const cameraRef = useRef();
+  const canvasRef = useRef();
+  const [emotions, setEmotions] = useState([]); // State to store detected emotions
+
+  useEffect(() => {
+    loadModels();
+  }, []);
+
+  const startVideo = () => {
+    navigator.mediaDevices
+      .getUserMedia({ video: true })
+      .then((currentStream) => {
+        if (cameraRef.current) {
+          cameraRef.current.srcObject = currentStream;
+
+          // Ensure video is loaded and dimensions are available
+          cameraRef.current.addEventListener("loadedmetadata", () => {
+            faceMyDetect(); // Start detection only after video metadata is loaded
+          });
+        }
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  };
+
+  const loadModels = async () => {
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
+      faceapi.nets.faceLandmark68Net.loadFromUri("/models"),
+      faceapi.nets.faceRecognitionNet.loadFromUri("/models"),
+      faceapi.nets.faceExpressionNet.loadFromUri("/models"),
+    ]);
+    startVideo(); // Start the video after models are loaded
+  };
+
+  useEffect(() => {
+    setHistoryEmotion((prev) => [...prev, ...emotions]);
+  }, [emotions]);
+
+  const faceMyDetect = () => {
+    const detectFaces = async () => {
+      if (!cameraRef.current || !cameraRef.current.readyState >= 2) {
+        return; // Video is not ready yet
+      }
+
+      const detections = await faceapi
+        .detectAllFaces(
+          cameraRef.current,
+          new faceapi.TinyFaceDetectorOptions()
+        )
+        .withFaceLandmarks()
+        .withFaceExpressions();
+
+      if (detections.length > 0) {
+        const detectedEmotions = detections.map((detection) => {
+          const expressions = detection.expressions;
+          const dominantEmotion = Object.keys(expressions).reduce((a, b) =>
+            expressions[a] > expressions[b] ? a : b
+          );
+          return dominantEmotion;
+        });
+        setEmotions(detectedEmotions);
+      }
+
+      const canvas = canvasRef.current;
+      const videoWidth = cameraRef.current.videoWidth;
+      const videoHeight = cameraRef.current.videoHeight;
+
+      if (videoWidth && videoHeight) {
+        const displaySize = { width: videoWidth, height: videoHeight };
+        faceapi.matchDimensions(canvas, displaySize);
+        const resizedDetections = faceapi.resizeResults(
+          detections,
+          displaySize
+        );
+
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        faceapi.draw.drawDetections(canvas, resizedDetections);
+        faceapi.draw.drawFaceLandmarks(canvas, resizedDetections);
+        faceapi.draw.drawFaceExpressions(canvas, resizedDetections);
+      }
+      requestAnimationFrame(detectFaces);
+    };
+    detectFaces();
+  };
+  useEffect(() => {
+    if (buttonScrollRef.current) {
+      buttonScrollRef.current.click();
+    }
+  }, [value]);
   useEffect(() => {
     if (uid) {
       const docRef = doc(firestore, "user", uid);
@@ -83,13 +178,9 @@ const ChatGPTComponent = () => {
     window.performance.navigation.type === performance.navigation.TYPE_RELOAD;
   useEffect(() => {
     handleScroll();
-    console.log(isrefresh);
   });
   useEffect(() => {
-    const pageLoaded = sessionStorage.getItem("pageLoaded");
-    if (pageLoaded) {
-      scrollToBottom();
-    }
+    scrollToBottom();
   });
   const stopAudio = () => {
     if (audioRef.current) {
@@ -137,11 +228,7 @@ const ChatGPTComponent = () => {
     }
   };
 
-  // Function to handle new messages and scroll
-  useEffect(() => {
-    handleScroll();
-    scrollToBottom();
-  }, [value]);
+  // Function to handle new messages and scrolls
 
   // Function to handle text-to-speech with Eleven Labs
   const textToSpeech = async (text, voiceId, index) => {
@@ -215,9 +302,43 @@ const ChatGPTComponent = () => {
     }
   };
   // Call ChatGPT API with Streaming and Markdown Support
+  const [last10Emotions, setLast10Emotions] = useState([]); // State to store the last 10 emotions
+
+  const updateLast10Emotions = (detectedEmotions) => {
+    setLast10Emotions((prevEmotions) => {
+      const updatedEmotions = [...prevEmotions, ...detectedEmotions].slice(-10);
+      return updatedEmotions;
+    });
+  };
+
+  // Function to find the most frequent emotion in the last 10 emotions
+
   const callChatGPT = async () => {
     if (!message.trim()) return; // Prevent empty messages
+    updateLast10Emotions(historyEmotion); // Update the last 10 emotions// Update the most frequent emotion
+    let mostFrequent;
 
+    if (last10Emotions.length >= 10) {
+      const emotionCounts = last10Emotions.reduce((acc, emotion) => {
+        acc[emotion] = (acc[emotion] || 0) + 1;
+        return acc;
+      }, {});
+
+      mostFrequent = Object.keys(emotionCounts).reduce((a, b) =>
+        emotionCounts[a] > emotionCounts[b] ? a : b
+      );
+    } else if (historyEmotion.length > 0) {
+      const emotionCounts = historyEmotion.reduce((acc, emotion) => {
+        acc[emotion] = (acc[emotion] || 0) + 1;
+        return acc;
+      }, {});
+
+      mostFrequent = Object.keys(emotionCounts).reduce((a, b) =>
+        emotionCounts[a] > emotionCounts[b] ? a : b
+      );
+    } else {
+      mostFrequent = "neutral";
+    }
     setLoading(true);
     setResponse("");
 
@@ -228,8 +349,7 @@ const ChatGPTComponent = () => {
     const messages = [
       {
         role: "system",
-        content:
-          "You are a compassionate and empathetic therapist. Speak with a calm, understanding tone and ask open-ended questions that encourage reflection. Use gentle affirmations and acknowledge feelings. Offer short, conversational, and human-like responses that convey genuine concern and support. Adapt your responses to show active listening and avoid rushing the conversation.",
+        content: `You are a compassionate and empathetic therapist. Speak with a calm, understanding tone and ask open-ended questions that encourage reflection. Use gentle affirmations and acknowledge feelings. Offer short, conversational, and human-like responses that convey genuine concern and support. Adapt your responses to show active listening and avoid rushing the conversation. This guy is very ${mostFrequent} `,
       },
       ...value?.data()?.chathistory?.flatMap((chat) => [
         { role: "user", content: chat.message },
@@ -305,7 +425,7 @@ const ChatGPTComponent = () => {
       // After the full response is received
       const newChatHistory = [
         ...(value?.data()?.chathistory || []),
-        { message, response: fullResponse },
+        { message, response: fullResponse, emotions: mostFrequent },
       ];
       //   setChatHistory(newChatHistory);
       uploadChatHistory(newChatHistory);
@@ -328,6 +448,10 @@ const ChatGPTComponent = () => {
 
   return (
     <div className="w-full justify-center items-center flex relative h-full">
+      <div className="">
+        <video className="w-96 h-96 hidden" ref={cameraRef} autoPlay />
+      </div>
+      <canvas ref={canvasRef} className="w-96 h-96 hidden" />
       {alert && (
         <div className="top-2 fixed z-50 rounded-md flex flex-row p-2 gap-3  w-1/3 justify-center items-center bg-[#626F47]">
           <Icon
@@ -468,6 +592,7 @@ const ChatGPTComponent = () => {
           )}
           {!isAtBottom && (
             <button
+              ref={buttonScrollRef}
               className="fixed left-1/2 transform -translate-x-1/2 flex bg-[#F2EED7] p-2 rounded-full shadow-lg text-[#626F47]"
               onClick={() => {
                 const container = containerRef.current;
