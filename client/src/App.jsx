@@ -9,12 +9,14 @@ import { auth } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { getDoc, doc } from "firebase/firestore";
 import { firestore } from "./firebase";
+import AccPage from "./pages/AccPage";
 
 export const appContext = createContext({
   user: null,
   userData: {},
   navigate: () => {},
   uid: null,
+  setUserData: () => {},
 });
 
 const App = () => {
@@ -38,12 +40,13 @@ const App = () => {
     });
   }, []);
   return (
-    <appContext.Provider value={{ user, userData, navigate, uid }}>
+    <appContext.Provider value={{ user, userData, navigate, uid, setUserData }}>
       <div className="h-screen w-full relative bg-[#AFBB89] flex justify-center items-center flex-col">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/signin" element={<SignIn />} />
+          <Route path="/acc" element={<AccPage />} />
         </Routes>
       </div>
     </appContext.Provider>
