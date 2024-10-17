@@ -6,10 +6,6 @@ import backgroundVideo from "../assets/vid/idle.mp4"; // Adjust the path as need
 const CornerVideo = () => {
   const videoRef = useRef(null);
 
-  // Optional buffer and error handlers
-  const handleBuffer = () => {
-    console.log("Video is buffering");
-  };
 
   const handleError = (error) => {
     console.error("Video Error:", error);
@@ -19,7 +15,6 @@ const CornerVideo = () => {
     <video
       ref={videoRef}
       src={backgroundVideo}
-      onBuffer={handleBuffer}
       onError={handleError}
       autoPlay
       loop

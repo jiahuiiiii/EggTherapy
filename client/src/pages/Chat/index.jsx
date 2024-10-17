@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
-import axios from "axios";
 import InputBox from "./components/InputBox";
 import { Icon } from "@iconify/react";
 import { Link } from "react-router-dom";
 import { useSpeechRecognition } from "react-speech-kit";
-import ReactMarkdown from "react-markdown"; // Import react-markdown
-import remarkGfm from "remark-gfm"; // Import remark-gfm if using
+import ReactMarkdown from "react-markdown"; 
+import remarkGfm from "remark-gfm"; 
 import removeMarkdown from "remove-markdown";
 import talkVideo from "../../assets/vid/talk.mp4";
 import idleVideo from "../../assets/vid/idle.mp4";
@@ -13,13 +12,12 @@ import { appContext } from "../../App";
 import { signOut } from "../../firebase";
 import { doc, getDoc, onSnapshot, updateDoc } from "firebase/firestore";
 import { firestore } from "../../firebase";
-import { useDocument } from "react-firebase-hooks/firestore";
 import * as faceapi from "face-api.js";
 
 const ChatGPTComponent = () => {
   const [cameraOpen, setCameraOpen] = useState(false);
   const apiKey =
-    "sk-xWl5CCRDcHqQUqi8vmV1wNppa55VQyVPKb3znQ-bMST3BlbkFJCUvJlgRCoK1BRIUow67N6IIAB4XAAPrnOQHoey6vQA";
+    "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";
   const [alert, setAlert] = useState(false);
   const [historyEmotion, setHistoryEmotion] = useState([]);
   const videoRef = useRef(null);
@@ -47,10 +45,9 @@ const ChatGPTComponent = () => {
 
   useEffect(() => {
     loadModels();
-    console.log(userData?.userImage);
+    //console.log(userData?.userImage);
   }, []);
 
-  // Track user scrolling and update if they are at the bottom
   const handleScroll = () => {
     const container = containerRef.current;
     if (container) {
@@ -61,7 +58,6 @@ const ChatGPTComponent = () => {
     }
   };
 
-  // Scroll to the bottom when new messages are added
   const scrollToBottom = () => {
     if (isAtBottom && endOfChatRef.current) {
       endOfChatRef.current.scrollIntoView({ behavior: "smooth" });
@@ -80,17 +76,15 @@ const ChatGPTComponent = () => {
   }, [userData]);
 
   const handleNewResponse = () => {
-    // Increment response count on each new response
     setResponseCount((prevCount) => prevCount + 1);
     //console.log("Response Count:", responseCount);
 
-    // Store characteristics every 20 responses
-    if (responseCount >= 9) {
+    if (responseCount >= 4) {
       deduceUserCharacteristics(value?.data()?.chathistory).then(
         (characteristics) => {
           if (characteristics) {
             console.log("User Characteristics:", characteristics);
-            saveUserCharacteristics(characteristics); // Call function to save
+            saveUserCharacteristics(characteristics); 
             setResponseCount(0);
           }
         }
@@ -102,7 +96,7 @@ const ChatGPTComponent = () => {
     if (uid) {
       try {
         updateDoc(doc(firestore, "user", uid), {
-          characteristics: characteristics, // Save characteristics in Firebase
+          characteristics: characteristics, 
         });
         getDoc(doc(firestore, "user", _user.uid)).then((_doc) => {
           setUserData(_doc.data());
@@ -115,7 +109,6 @@ const ChatGPTComponent = () => {
   };
 
   useEffect(() => {
-    // Auto scroll to the bottom when chat history changes and user is at the bottom
     scrollToBottom();
   }, [value]);
 
@@ -139,9 +132,8 @@ const ChatGPTComponent = () => {
         if (cameraRef.current) {
           cameraRef.current.srcObject = currentStream;
 
-          // Ensure video is loaded and dimensions are available
           cameraRef.current.addEventListener("loadedmetadata", () => {
-            faceMyDetect(); // Start detection only after video metadata is loaded
+            faceMyDetect(); 
           });
         }
       })
@@ -157,7 +149,7 @@ const ChatGPTComponent = () => {
       faceapi.nets.faceRecognitionNet.loadFromUri("/models"),
       faceapi.nets.faceExpressionNet.loadFromUri("/models"),
     ]);
-    // startVideo(); // Start the video after models are loaded
+    // startVideo(); 
   };
 
   useEffect(() => {
@@ -166,17 +158,14 @@ const ChatGPTComponent = () => {
 
   const toggleCamera = () => {
     if (!cameraOpen) {
-      // Open the camera
       navigator.mediaDevices
         .getUserMedia({ video: true })
         .then((currentStream) => {
           if (cameraRef.current) {
             cameraRef.current.srcObject = currentStream;
             setCameraOpen(true);
-
-            // Ensure video is loaded and dimensions are available
             cameraRef.current.addEventListener("loadedmetadata", () => {
-              faceMyDetect(); // Start detection only after video metadata is loaded
+              faceMyDetect(); 
             });
           }
         })
@@ -184,20 +173,19 @@ const ChatGPTComponent = () => {
           console.error("Error accessing camera:", err);
         });
     } else {
-      // Close the camera
       if (cameraRef.current && cameraRef.current.srcObject) {
         let tracks = cameraRef.current.srcObject.getTracks();
-        tracks.forEach((track) => track.stop()); // Stop all video tracks
+        tracks.forEach((track) => track.stop());
         cameraRef.current.srcObject = null;
       }
-      setCameraOpen(false); // Set camera state to closed
+      setCameraOpen(false); 
     }
   };
 
   const faceMyDetect = () => {
     const detectFaces = async () => {
       if (!cameraRef.current || !cameraRef.current.readyState >= 2) {
-        return; // Video is not ready yet
+        return; 
       }
 
       const detections = await faceapi
@@ -207,8 +195,6 @@ const ChatGPTComponent = () => {
         )
         .withFaceLandmarks()
         .withFaceExpressions();
-
-      // ... (existing face detection logic)
     };
     detectFaces();
   };
@@ -236,10 +222,6 @@ const ChatGPTComponent = () => {
       videoRef.current.load();
     }
   }, [audioPlaying]);
-
-  const handleBuffer = () => {
-    console.log("Video is buffering");
-  };
 
   const handleError = () => {
     console.error("Error loading the video");
@@ -324,8 +306,7 @@ const ChatGPTComponent = () => {
       });
     }
   };
-  // Call ChatGPT API with Streaming and Markdown Support
-  const [last10Emotions, setLast10Emotions] = useState([]); // State to store the last 10 emotions
+  const [last10Emotions, setLast10Emotions] = useState([]); 
 
   const updateLast10Emotions = (detectedEmotions) => {
     setLast10Emotions((prevEmotions) => {
@@ -355,7 +336,7 @@ const ChatGPTComponent = () => {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-4", // You can change to the appropriate GPT model
+          model: "ft:gpt-4o-2024-08-06:vegetable-chicken:eggtherapy:AJKQXKnb", 
           messages: [{ role: "user", content: prompt }],
         }),
       });
@@ -376,8 +357,8 @@ const ChatGPTComponent = () => {
   };
 
   const callChatGPT = async () => {
-    if (!message.trim()) return; // Prevent empty messages
-    updateLast10Emotions(historyEmotion); // Update the last 10 emotions// Update the most frequent emotion
+    if (!message.trim()) return; 
+    updateLast10Emotions(historyEmotion); 
     let mostFrequent;
 
     if (last10Emotions.length >= 10) {
@@ -409,7 +390,7 @@ const ChatGPTComponent = () => {
     const messages = [
       {
         role: "system",
-        content: `You are a compassionate and empathetic therapist. Speak with a calm, understanding tone and ask open-ended questions that encourage reflection. Use gentle affirmations and acknowledge feelings. Offer short, conversational, and human-like responses that convey genuine concern and support. Adapt your responses to show active listening and avoid rushing the conversation. This guy is very ${mostFrequent} `,
+        content: `You are a compassionate and empathetic therapist. Speak with a calm, understanding tone, and ask open-ended questions that encourage reflection, but also provide thoughtful advice when appropriate. Use gentle affirmations, acknowledge feelings, and suggest actionable steps or insights that could help the user move forward. Keep your responses short, conversational, and human-like, conveying genuine concern and support. Only end with a question if you have something to ask subsequently. The current mood of the user is ${mostFrequent} `,
       },
       ...value?.data()?.chathistory?.flatMap((chat) => [
         { role: "user", content: chat.message },
@@ -426,7 +407,7 @@ const ChatGPTComponent = () => {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "ft:gpt-4o-2024-08-06:vegetable-chicken:eggtherapy:AJKQXKnb",
           messages: messages,
           stream: true,
         }),
@@ -439,7 +420,7 @@ const ChatGPTComponent = () => {
       const decoder = new TextDecoder("utf-8");
       let doneReading = false;
       let fullResponse = "";
-      let buffer = ""; // Initialize buffer
+      let buffer = ""; 
 
       while (!doneReading) {
         const { value, done } = await reader.read();
@@ -447,10 +428,8 @@ const ChatGPTComponent = () => {
         const chunkValue = decoder.decode(value, { stream: true });
         buffer += chunkValue;
 
-        // Split buffer into lines
         const lines = buffer.split("\n");
 
-        // Keep the last partial line in the buffer
         buffer = lines.pop();
 
         for (const line of lines) {
@@ -466,7 +445,7 @@ const ChatGPTComponent = () => {
               const content = parsed.choices[0].delta.content;
               if (content) {
                 fullResponse += content;
-                setResponse(fullResponse); // Update response incrementally
+                setResponse(fullResponse); 
               }
             } catch (error) {
               console.error(
@@ -475,21 +454,19 @@ const ChatGPTComponent = () => {
                 "Line:",
                 message
               );
-              // Optionally, you can reset the buffer or handle the error as needed
             }
           }
         }
       }
 
-      // After the full response is received
       const newChatHistory = [
         ...(value?.data()?.chathistory || []),
         { message, response: fullResponse, emotions: mostFrequent },
       ];
-      //   setChatHistory(newChatHistory);
+
       uploadChatHistory(newChatHistory);
       handleNewResponse();
-      localStorage.setItem("chatHistory", JSON.stringify(newChatHistory)); // Save to localStorage
+      localStorage.setItem("chatHistory", JSON.stringify(newChatHistory)); 
 
       const plainText = removeMarkdown(fullResponse);
 
@@ -499,7 +476,7 @@ const ChatGPTComponent = () => {
         newChatHistory.length - 1
       );
       setLoading(false);
-      setMessage(""); // Clear input after sending
+      setMessage(""); 
     } catch (error) {
       console.error("Error connecting to ChatGPT API:", error);
       setLoading(false);
@@ -689,7 +666,6 @@ const ChatGPTComponent = () => {
         <video
           ref={videoRef}
           src={backgroundVideo}
-          onBuffer={handleBuffer}
           onError={handleError}
           autoPlay
           loop
@@ -697,7 +673,6 @@ const ChatGPTComponent = () => {
           className="absolute bottom-0 right-0 w-1/3 h-auto z-0"
         />
       </div>
-      {/* InputBox Component for Submission */}
     </div>
   );
 };
