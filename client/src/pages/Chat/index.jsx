@@ -17,6 +17,8 @@ import { useDocument } from "react-firebase-hooks/firestore";
 import * as faceapi from "face-api.js";
 
 const ChatGPTComponent = () => {
+  const apiKey =
+    "sk-xWl5CCRDcHqQUqi8vmV1wNppa55VQyVPKb3znQ-bMST3BlbkFJCUvJlgRCoK1BRIUow67N6IIAB4XAAPrnOQHoey6vQA";
   const [alert, setAlert] = useState(false);
   const [historyEmotion, setHistoryEmotion] = useState([]);
   const videoRef = useRef(null);
@@ -25,7 +27,7 @@ const ChatGPTComponent = () => {
   const [playing, setPlaying] = useState(null);
   const containerRef = useRef(null);
   const [response, setResponse] = useState("");
-
+  const [responseCount, setResponseCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
@@ -40,9 +42,11 @@ const ChatGPTComponent = () => {
   const canvasRef = useRef();
   const endOfChatRef = useRef(null);
   const [emotions, setEmotions] = useState([]);
+  const [userCharacteristics, setUserCharacteristics] = useState("");
 
   useEffect(() => {
     loadModels();
+    console.log(userData?.userImage);
   }, []);
 
   // Track user scrolling and update if they are at the bottom
@@ -73,6 +77,38 @@ const ChatGPTComponent = () => {
       return unsubscribe;
     }
   }, [userData]);
+
+  const handleNewResponse = () => {
+    // Increment response count on each new response
+    setResponseCount((prevCount) => prevCount + 1);
+    //console.log("Response Count:", responseCount);
+
+    // Store characteristics every 20 responses
+    if (responseCount >= 9) {
+      deduceUserCharacteristics(value?.data()?.chathistory).then(
+        (characteristics) => {
+          if (characteristics) {
+            console.log("User Characteristics:", characteristics);
+            saveUserCharacteristics(characteristics); // Call function to save
+            setResponseCount(0);
+          }
+        }
+      );
+    }
+  };
+
+  const saveUserCharacteristics = (characteristics) => {
+    if (uid) {
+      try {
+        updateDoc(doc(firestore, "user", uid), {
+          characteristics: characteristics, // Save characteristics in Firebase
+        });
+        console.log("User characteristics saved successfully");
+      } catch (error) {
+        console.error("Error saving user characteristics:", error);
+      }
+    }
+  };
 
   useEffect(() => {
     // Auto scroll to the bottom when chat history changes and user is at the bottom
@@ -186,22 +222,13 @@ const ChatGPTComponent = () => {
       return unsubscribe;
     }
   }, [userData]);
-  //   const [chatHistory, setChatHistory] = useState(
-  //     value?.data().chathistory || []
-  //   );
-  //   useEffect(() => {
-  //     setChatHistory(value?.data().chathistory || []);
-  //   }, [value]);
-  //   console.log(chatHistory);
-  // Ref to track the end of the chat for scrolling
 
   useEffect(() => {
-    // Update video source based on audioPlaying state
     const newVideo = audioPlaying ? talkVideo : idleVideo;
     setBackgroundVideo(newVideo);
 
     if (videoRef.current) {
-      videoRef.current.load(); // Reload the video when the source changes
+      videoRef.current.load();
     }
   }, [audioPlaying]);
 
@@ -213,22 +240,6 @@ const ChatGPTComponent = () => {
     console.error("Error loading the video");
   };
 
-  // const handleScroll = () => {
-  //   const container = containerRef.current;
-  //   if (container) {
-  //     const isUserAtBottom =
-  //       container.scrollHeight - container.scrollTop <= container.clientHeight; // Added tolerance
-  //     setIsAtBottom(isUserAtBottom);
-  //   }
-  // };
-  // const isrefresh =
-  //   window.performance.navigation.type === performance.navigation.TYPE_RELOAD;
-  // useEffect(() => {
-  //   handleScroll();
-  // });
-  // useEffect(() => {
-  //   scrollToBottom();
-  // });
   const stopAudio = () => {
     if (audioRef.current) {
       audioRef.current.pause();
@@ -236,48 +247,15 @@ const ChatGPTComponent = () => {
       audioRef.current = null;
     }
     setAudioPlaying(false);
-    setPlaying(null); // reset playing index
+    setPlaying(null);
   };
 
-  // useEffect(() => {
-  //   const container = containerRef.current;
-  //   setIsAtBottom(false);
-  //   if (!isAtBottom) {
-  //     container.scrollTo({
-  //       top: container.scrollHeight,
-  //       behavior: "smooth",
-  //     });
-  //   }
-  //   setIsAtBottom(true);
-  // }, [value]);
-  // Initialize Speech Recognition
   const { listen, listening, stop, supported } = useSpeechRecognition({
     onResult: (result) => {
       setMessage(result);
     },
   });
 
-  //   // Load chat history from localStorage on component mount
-  //   useEffect(() => {
-  //     const savedChatHistory = localStorage.getItem("chatHistory");
-  //     if (savedChatHistory) {
-  //       setChatHistory(JSON.parse(savedChatHistory));
-  //     }
-
-  //     // Scroll to bottom on initial load
-  //     scrollToBottom();
-  //   }, []);
-
-  // Function to scroll to bottom
-  // const scrollToBottom = () => {
-  //   if (endOfChatRef.current) {
-  //     endOfChatRef.current.scrollIntoView({ behavior: "smooth" });
-  //   }
-  // };
-
-  // Function to handle new messages and scrolls
-
-  // Function to handle text-to-speech with Eleven Labs
   const textToSpeech = async (text, voiceId, index) => {
     try {
       const response = await fetch("http://localhost:3000/api/text-to-speech", {
@@ -292,32 +270,26 @@ const ChatGPTComponent = () => {
         const audioBlob = await response.blob();
         const audioURL = URL.createObjectURL(audioBlob);
 
-        // Pause and reset any existing audio
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.currentTime = 0;
           audioRef.current = null;
         }
 
-        // Create new audio instance
         const newAudio = new Audio(audioURL);
         audioRef.current = newAudio;
 
-        // Update state
         setAudioPlaying(true);
         setPlaying(index);
 
-        // Play audio
         newAudio.play();
 
-        // Event listener for when audio ends
         newAudio.addEventListener("ended", () => {
           setAudioPlaying(false);
           setPlaying(null);
           audioRef.current = null;
         });
 
-        // Optional: Handle audio errors
         newAudio.addEventListener("error", (e) => {
           console.error("Error playing audio:", e);
           setAudioPlaying(false);
@@ -332,7 +304,6 @@ const ChatGPTComponent = () => {
     }
   };
 
-  // Clean up audio on component unmount
   useEffect(() => {
     return () => {
       if (audioRef.current) {
@@ -358,7 +329,46 @@ const ChatGPTComponent = () => {
     });
   };
 
-  // Function to find the most frequent emotion in the last 10 emotions
+  const deduceUserCharacteristics = async (chatHistory) => {
+    const apiUrl = "https://api.openai.com/v1/chat/completions";
+
+    const prompt = `
+      You are an AI expert in user analysis. Based on the following chat history, deduce the user's characteristics such as emotional state, communication style, personality traits, and overall mood. 
+      Please provide a summary of these characteristics in a sentence.
+  
+      Chat History:
+      ${chatHistory
+        .map((chat) => `User: ${chat.message}\nAssistant: ${chat.response}`)
+        .join("\n\n")}
+    `;
+
+    try {
+      const res = await fetch(apiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4", // You can change to the appropriate GPT model
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        const characteristics = data.choices[0].message.content;
+        console.log("Inferred Characteristics:", characteristics);
+        return characteristics;
+      } else {
+        throw new Error(`API Error: ${data.error.message}`);
+      }
+    } catch (error) {
+      console.error("Error inferring user characteristics:", error);
+      return null;
+    }
+  };
 
   const callChatGPT = async () => {
     if (!message.trim()) return; // Prevent empty messages
@@ -389,8 +399,6 @@ const ChatGPTComponent = () => {
     setLoading(true);
     setResponse("");
 
-    const apiKey =
-      "sk-xWl5CCRDcHqQUqi8vmV1wNppa55VQyVPKb3znQ-bMST3BlbkFJCUvJlgRCoK1BRIUow67N6IIAB4XAAPrnOQHoey6vQA"; // **Important:** Move this to a secure location
     const apiUrl = "https://api.openai.com/v1/chat/completions";
 
     const messages = [
@@ -418,7 +426,6 @@ const ChatGPTComponent = () => {
           stream: true,
         }),
       });
-
       if (!res.ok) {
         throw new Error(`API Error: ${res.status} ${res.statusText}`);
       }
@@ -476,6 +483,7 @@ const ChatGPTComponent = () => {
       ];
       //   setChatHistory(newChatHistory);
       uploadChatHistory(newChatHistory);
+      handleNewResponse();
       localStorage.setItem("chatHistory", JSON.stringify(newChatHistory)); // Save to localStorage
 
       const plainText = removeMarkdown(fullResponse);
@@ -570,11 +578,18 @@ const ChatGPTComponent = () => {
             {userData?.userName}
           </div>
           <button onClick={() => setAlert(true)}>
-            <img
-              src={userData?.userImage}
-              alt="user"
-              className="w-14 h-14 rounded-full"
-            />
+            {userData.userImage ? (
+              <img
+                src={userData?.userImage}
+                alt="user"
+                className="w-14 h-14 rounded-full"
+              />
+            ) : (
+              <Icon
+                icon="carbon:user-avatar-filled-alt"
+                className="text-[#FEFAE0] w-12 h-12"
+              />
+            )}
           </button>
         </div>
       </div>

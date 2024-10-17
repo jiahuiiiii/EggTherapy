@@ -32,6 +32,7 @@ export const signInWithGoogle = () => {
           userImage: user.photoURL,
           uid: user.uid,
           chathistory: [],
+          characteristics: "",
           // ...
         });
       }
